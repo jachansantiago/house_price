@@ -16,6 +16,10 @@
 ## Problema Escogido:
 https://www.kaggle.com/c/house-prices-advanced-regression-techniques
 
+## READ DATA DESCRIPTION
+
+https://github.com/jeffrey-chan/house_price/blob/master/data_description.txt
+
 ## Linear Regression: 
 https://www.youtube.com/watch?v=hfO6iRj-GZo
 
