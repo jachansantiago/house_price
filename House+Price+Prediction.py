@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[29]:
+# In[1]:
 
 from sklearn import linear_model
 import numpy as np
@@ -13,19 +13,20 @@ from sklearn.preprocessing import OneHotEncoder
 
 # ## LOAD DATA:
 
-# In[30]:
+# In[2]:
 
 # Load Data
 train_data = pd.read_csv("train.csv")
 test_data = pd.read_csv("test.csv")
 
-# In[35]:
+
+# In[5]:
 
 # Store Ids of test data for later in the csv creation to kaggle submition
 test_ids = test_data["Id"]
 
 
-# In[36]:
+# In[6]:
 
 # Load Targets
 y = train_data["SalePrice"]
@@ -42,20 +43,15 @@ y = np.array(y)
 #         Change to Int
 #         Hot One encode Categorical Data
 
-# In[33]:
+# In[7]:
 
 
-imputer = Imputer(strategy="median")
-scaler = StandardScaler()
-hot_enc = OneHotEncoder()
-
-
-def prepare_data(dataframe, feature_list=list(), training=True):
+def prepare_data(dataframe, feature_list, fimputer, fscaler, fhot_enc):
 
     if not feature_list:
         feature_list = list(dataframe)
 
-    dataframe = dataframe[feature_list]
+    dataframe = dataframe[feature_list].copy()
 
     # Split dataframe in numerical and categorial data
     num_data = dataframe.select_dtypes(include=[np.number])
@@ -64,15 +60,10 @@ def prepare_data(dataframe, feature_list=list(), training=True):
     if not num_data.empty:
 
         # Replace all NaN with the median in numerial data
-        if training:
-            imputer.fit(num_data)
-        X_num = imputer.transform(num_data)
+        X_num = fimputer.transform(num_data)
 
         # Scale between -1, 1
-        if training:
-            scaler.fit(X_num)
-
-        X_num = scaler.transform(X_num)
+        X_num = fscaler.transform(X_num)
 
         # Check if have categorical data
         if cat_data.empty:
@@ -84,15 +75,12 @@ def prepare_data(dataframe, feature_list=list(), training=True):
         cat_data.fillna('None', inplace=True)
 
         facto_cat_data = pd.DataFrame()
-
         # Factorize each categorical column (string -> int)
         for feature in list(cat_data):
             facto_cat_data[feature], _ = pd.factorize(cat_data[feature])
 
         # Hot encode
-        if training:
-            hot_enc.fit(facto_cat_data.values)
-        X_cat_1hot = hot_enc.transform(facto_cat_data.values).todense()
+        X_cat_1hot = fhot_enc.transform(facto_cat_data.values).todense()
 
         # Check if have numerical data
         if num_data.empty:
@@ -104,11 +92,50 @@ def prepare_data(dataframe, feature_list=list(), training=True):
     return X
 
 
-# ## Extract our Training Features
+def get_train_and_test(train, test, feature_list=[]):
+
+    if not feature_list:
+        feature_list = list(test)
+
+    X = train[feature_list].copy()
+    T = test[feature_list].copy()
+
+    imputer = Imputer(strategy="median")
+    scaler = StandardScaler()
+    hot_enc = OneHotEncoder()
+
+    all_data = pd.concat([X, T])
+    all_num_data = all_data.select_dtypes(include=[np.number])
+    all_cat_data = all_data.select_dtypes(include=[object])
+
+    all_num_data = imputer.fit_transform(all_num_data)
+    scaler.fit(all_num_data)
+
+    all_cat_data.fillna('None', inplace=True)
+
+    facto_cat_data = pd.DataFrame()
+    # Factorize each categorical column (string -> int)
+    for feature in list(all_cat_data):
+        facto_cat_data[feature], _ = pd.factorize(all_cat_data[feature])
+
+    hot_enc.fit(facto_cat_data.values)
+
+    X = prepare_data(X, feature_list, imputer, scaler, hot_enc)
+    T = prepare_data(T, feature_list, imputer, scaler, hot_enc)
+
+    return X, T
+
+
+# Extract our Training Features
 #
 #  ***TODO: Select Better Features***
 
-# In[40]:
+# In[8]:
+# !Useful More Info in data_description.txt
+# list(train_data) # Print all Features
+
+
+# In[9]:
 
 # Load Selected features
 # X = np.array([  # TODO: Select better features
@@ -123,16 +150,15 @@ def prepare_data(dataframe, feature_list=list(), training=True):
 #                 test_data["LotArea"]
 #             ])
 
-training_features = ["YearBuilt", "YrSold", "LotArea", "Street"]  # TODO
+training_features = ["YearBuilt", "YrSold", "LotArea", "Street"]  # <- TODO
 
-# Training Data need to be True
-X = prepare_data(train_data, training_features, True)
+# Extract training features in X and T from train_data and test_data
+X, T = get_train_and_test(train_data, test_data, training_features)
 
-# Test Data need to be False
-T = prepare_data(test_data, training_features, False)
+X.shape, T.shape
 
 
-# In[41]:
+# In[10]:
 
 # Training Features
 #             #TamaNo    #Cuartos
@@ -152,7 +178,7 @@ reg = linear_model.LinearRegression()
 reg.fit(X, y)
 
 
-# In[ ]:
+# In[11]:
 
 # Predictions
 
@@ -160,7 +186,7 @@ reg.fit(X, y)
 pred = reg.predict(T)
 
 
-# In[52]:
+# In[12]:
 
 # For this problem Kaggle do not accept negatives values
 # NOTE: We know negatives value are wrong
@@ -176,7 +202,7 @@ if True:
     pred = np.abs(pred)
 
 
-# In[53]:
+# In[13]:
 
 # Create a "table" each index name is column name
 # Kaggle Format
@@ -186,10 +212,11 @@ df_dict = {"SalePrice": pred,
 # Convert to Pandas DataFrame
 df = pd.DataFrame(df_dict)
 
-
-# In[54]:
+# In[14]:
 
 # Save in to csv file
+
+# Formatting
 pred_filename = "predictions-with-" + "+".join(training_features) + ".csv"
 df.to_csv(pred_filename, index=False)
 print("Output file: " + pred_filename)
