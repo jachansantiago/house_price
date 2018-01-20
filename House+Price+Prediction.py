@@ -108,8 +108,9 @@ def get_train_and_test(train, test, feature_list=[]):
     all_num_data = all_data.select_dtypes(include=[np.number])
     all_cat_data = all_data.select_dtypes(include=[object])
 
-    all_num_data = imputer.fit_transform(all_num_data)
-    scaler.fit(all_num_data)
+    if not all_num_data.empty:
+        all_num_data = imputer.fit_transform(all_num_data)
+        scaler.fit(all_num_data)
 
     all_cat_data.fillna('None', inplace=True)
 
@@ -118,7 +119,8 @@ def get_train_and_test(train, test, feature_list=[]):
     for feature in list(all_cat_data):
         facto_cat_data[feature], _ = pd.factorize(all_cat_data[feature])
 
-    hot_enc.fit(facto_cat_data.values)
+    if not all_cat_data.empty:
+        hot_enc.fit(facto_cat_data.values)
 
     X = prepare_data(X, feature_list, imputer, scaler, hot_enc)
     T = prepare_data(T, feature_list, imputer, scaler, hot_enc)
